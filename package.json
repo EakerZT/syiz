@@ -1,0 +1,42 @@
+{
+  "name": "syiz",
+  "version": "0.0.1",
+  "description": "syiz HTTP framework",
+  "repository": "https://github.com/EakerZT/syiz.git",
+  "author": "EakerZT",
+  "license": "MIT",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "rimraf dist && tsc"
+  },
+  "dependencies": {
+    "koa": "^2.13.4",
+    "koa-body": "^6.0.1",
+    "koa-router": "^12.0.0",
+    "koa-static": "^5.0.0",
+    "koa2-connect-history-api-fallback": "^0.1.3"
+  },
+  "devDependencies": {
+    "@types/koa": "^2.13.4",
+    "@types/koa-router": "^7.4.4",
+    "@typescript-eslint/eslint-plugin": "^5.16.0",
+    "@typescript-eslint/parser": "^5.16.0",
+    "eslint": "^8.12.0",
+    "eslint-config-airbnb-base": "^15.0.0",
+    "eslint-plugin-import": "^2.25.4",
+    "nodemon": "^2.0.19",
+    "pkg": "^5.8.0",
+    "rimraf": "^3.0.2",
+    "ts-node": "^10.7.0",
+    "typescript": "^4.6.3"
+  },
+  "keywords": [
+    "koa",
+    "spring",
+    "koa2"
+  ]
+}
