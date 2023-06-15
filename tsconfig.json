@@ -5,17 +5,19 @@
       "es6"
     ],
     "declaration": true,
-    "target": "ES2017",
+    "target": "ES2022",
     "module": "commonjs",
     "moduleResolution": "node",
-    "outDir": "dist",
+    "outDir": "./dist",
     "rootDir": "./lib",
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "sourceMap": false,
+    "strictNullChecks": true,
     "esModuleInterop": true
   },
   "include": [
-    "lib/**/*"
+    "lib/**/*",
+    "example/**/*",
   ]
 }
