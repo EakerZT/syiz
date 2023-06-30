@@ -1,10 +1,7 @@
-import { Parameter } from '../lib/Router'
-import 'reflect-metadata'
+import Syiz from '../lib/Syiz'
 
-class TestClass {
-  test (@Parameter('aaa') test: string) {
-    console.log(1)
-  }
-}
-
-console.log(new TestClass())
+const app = new Syiz({
+  port: 6543,
+  sourceDir: __dirname
+})
+app.start()

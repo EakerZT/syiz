@@ -1,3 +1,4 @@
 export interface SyizApplicationOption {
-  port?: number
+  port?: number;
+  sourceDir?: string;
 }
