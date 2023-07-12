@@ -17,19 +17,29 @@ export default class Syiz {
   }
 
   private async onServerRequest (req: IncomingMessage, res: ServerResponse) {
-    console.log(this)
-    const route = this.requestMap.find(s => s.match(req))
-    if (route) {
-      const result = await route.target(req)
-      if (result) {
-        if (typeof result === 'number') {
-          res.end(result.toString())
-          return
-        } else {
-          res.end({ a: 123 })
-        }
-        return
+    let route:RequestMethod|null = null
+    let params:Record<string, string>|false = false
+    for (let i = 0; i < this.requestMap.length; i++) {
+      const r = this.requestMap[i].match(req.url ?? '')
+      if (r) {
+        params = r.params as Record<string, string>
+        route = this.requestMap[i]
+        break
       }
+    }
+    if (!params || !route) {
+      res.end('404')
+      return
+    }
+    const result = await route.target(req, params)
+    if (result) {
+      if (typeof result === 'number') {
+        res.end(result.toString())
+        return
+      } else {
+        res.end({ a: 123 })
+      }
+      return
     }
     res.end('404')
   }

@@ -1,8 +1,9 @@
 import { IncomingMessage } from 'node:http'
+import { match, MatchFunction } from 'path-to-regexp'
 
 interface RequestMethodMetadataRaw {
     path: string;
-    funName:string;
+    funName: string;
     method: 'GET' | 'POST' | 'PUT' | 'DELETE'
 }
 
@@ -70,41 +71,40 @@ export function isExistController (target: any) {
 
 export interface RequestContext {
     body: unknown;
+    param:Record<string, string>
 }
 
 export interface RequestMethod {
     path: string;
-    match:(req:IncomingMessage)=>boolean,
-    validator:(req:IncomingMessage)=>void,
-    target: (req:IncomingMessage) =>Promise<unknown>
+    match: MatchFunction,
+    validator: (req: IncomingMessage) => void,
+    target: (req: IncomingMessage, param:Record<string, string>) => Promise<unknown>
 }
 
-export function build (clazz: any, target: any):RequestMethod[] {
+export function build (clazz: any, target: any): RequestMethod[] {
   const metadata = controllerMetadataMap[target]
-  const list:RequestMethod[] = []
+  const list: RequestMethod[] = []
   if (metadata.disabled) {
     return []
   }
   for (const key in metadata.methodMap) {
     const m = metadata.methodMap[key]
     const fullPath = `${metadata.prefix}${m.path}`
-    const matchScript:string = `return true // '${fullPath}'`
+    const validScript: string = ''
     // @ts-ignore
     // eslint-disable-next-line no-new-func
-    const matchFun:(req:IncomingMessage)=>boolean = new Function('req', matchScript)
-    const validScript:string = ''
-    // @ts-ignore
-    // eslint-disable-next-line no-new-func
-    const validFun:(req:IncomingMessage)=>void = new Function('req', validScript)
+    const validFun: (req: IncomingMessage) => void = new Function('req', validScript)
+    console.log(fullPath)
     list.push({
-      match: matchFun,
+      match: match(fullPath),
       path: fullPath,
       validator: validFun,
-      target: async (req) => {
-        const ctx:RequestContext = {
-          body: {}
+      target: async (req, par:Record<string, string>) => {
+        const ctx: RequestContext = {
+          body: {},
+          param: par
         }
-        return await clazz[m.path](ctx)
+        return await clazz[m.funName](ctx)
       }
     })
   }
