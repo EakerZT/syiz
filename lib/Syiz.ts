@@ -37,7 +37,7 @@ export default class Syiz {
       res.end('404')
       return
     }
-    const result = await route.target(req, params)
+    const result = await route.target(req, route)
     if (result) {
       if (typeof result === 'number') {
         const text = result.toString()

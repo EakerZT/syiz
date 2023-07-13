@@ -4,11 +4,31 @@ import { ValidatorType } from './Validator'
 
 type HttpRequestMethod = 'GET' | 'POST' | 'PUT' | 'DELETE'
 
+interface RequestMethodParameterMetadataRawBody {
+    type: 'body'
+}
+
+interface RequestMethodParameterMetadataRawQuery {
+    type: 'query',
+    name: string;
+}
+
+interface RequestMethodParameterMetadataRawParam {
+    type: 'param',
+    name: string;
+}
+
+type RequestMethodParameterMetadataRaw =
+    RequestMethodParameterMetadataRawBody
+    | RequestMethodParameterMetadataRawQuery
+    | RequestMethodParameterMetadataRawParam
+
 interface RequestMethodMetadataRaw {
     path: string;
     funName: string;
     body?: ValidatorType;
-    method: HttpRequestMethod
+    method: HttpRequestMethod,
+    params: Array<RequestMethodParameterMetadataRaw | undefined>;
 }
 
 export interface ControllerMetadataRaw {
@@ -36,7 +56,8 @@ function getMethodMetadata (target: any, key: string | symbol): RequestMethodMet
     routerMetadata.methodMap[key] = {
       path: '',
       funName: key.toString(),
-      method: 'GET'
+      method: 'GET',
+      params: []
     }
   }
   return routerMetadata.methodMap[key]
@@ -62,8 +83,8 @@ export interface RequestMethodOption {
     body?: ValidatorType;
 }
 
-function _RequestMapping (method: HttpRequestMethod, option: RequestMethodOption = {}): PropertyDecorator {
-  return (target: any, propertyKey) => {
+function _RequestMapping (method: HttpRequestMethod, option: RequestMethodOption = {}): MethodDecorator {
+  return (target: any, propertyKey, descriptor:TypedPropertyDescriptor<any>) => {
     const m = getMethodMetadata(target, propertyKey)
     m.path = option.path ?? propertyKey.toString()
     m.method = method
@@ -71,20 +92,55 @@ function _RequestMapping (method: HttpRequestMethod, option: RequestMethodOption
   }
 }
 
-export function Get (option: RequestMethodOption = {}): PropertyDecorator {
+export function Get (option: RequestMethodOption = {}): MethodDecorator {
   return _RequestMapping('GET', option)
 }
 
-export function Post (option: RequestMethodOption = {}): PropertyDecorator {
+export function Post (option: RequestMethodOption = {}): MethodDecorator {
   return _RequestMapping('POST', option)
 }
 
-export function Put (option: RequestMethodOption = {}): PropertyDecorator {
+export function Put (option: RequestMethodOption = {}): MethodDecorator {
   return _RequestMapping('PUT', option)
 }
 
-export function Delete (option: RequestMethodOption = {}): PropertyDecorator {
+export function Delete (option: RequestMethodOption = {}): MethodDecorator {
   return _RequestMapping('DELETE', option)
+}
+
+function addParam (target: Object, propertyKey: string | symbol, parameterIndex: number, option: RequestMethodParameterMetadataRaw) {
+  const m = getMethodMetadata(target, propertyKey)
+  for (let i = m.params.length; i < parameterIndex + 1; i++) {
+    m.params.push(undefined)
+  }
+  m.params[parameterIndex] = option
+}
+
+export function Body (): ParameterDecorator {
+  return (target, propertyKey, parameterIndex) => {
+    if (!propertyKey) {
+      throw new SyntaxError('@Body can in here')
+    }
+    addParam(target, propertyKey, parameterIndex, { type: 'body' })
+  }
+}
+
+export function Query (name: string): ParameterDecorator {
+  return (target, propertyKey, parameterIndex) => {
+    if (!propertyKey) {
+      throw new SyntaxError('@Query can in here')
+    }
+    addParam(target, propertyKey, parameterIndex, { type: 'query', name: name })
+  }
+}
+
+export function Param (name: string): ParameterDecorator {
+  return (target, propertyKey, parameterIndex) => {
+    if (!propertyKey) {
+      throw new SyntaxError('@Param can in here')
+    }
+    addParam(target, propertyKey, parameterIndex, { type: 'param', name: name })
+  }
 }
 
 export function isExistController (target: any) {
@@ -101,7 +157,7 @@ export interface RequestMethod {
     method: HttpRequestMethod,
     urlValidator: MatchFunction,
     bodyValidator: (req: IncomingMessage) => void,
-    target: (req: IncomingMessage, param: Record<string, unknown>) => Promise<unknown>
+    target: (req: IncomingMessage, param: RequestMethod) => Promise<unknown>
 }
 
 export function build (clazz: any, target: any): RequestMethod[] {
@@ -117,18 +173,28 @@ export function build (clazz: any, target: any): RequestMethod[] {
     // @ts-ignore
     // eslint-disable-next-line no-new-func
     const validFun: (req: IncomingMessage) => void = new Function('req', validScript)
+    let funScript = ''
+    for (const param of m.params) {
+      if (!param) {
+        funScript += 'value.push(undefined);\n'
+      } else if (param.type === 'body') {
+        funScript += 'value.push(getBody(req));\n'
+      } else if (param.type === 'query') {
+        funScript += `value.push(getQuery(req,'${param.name}'));\n`
+      } else if (param.type === 'param') {
+        funScript += `value.push(getParam(par,'${param.name}'));\n`
+      }
+    }
+    const transFunScript: string = `const value = [];\n${funScript}return value;`
     console.log(fullPath)
     list.push({
       urlValidator: match(fullPath),
       path: fullPath,
       method: m.method,
       bodyValidator: validFun,
-      target: async (req, par: Record<string, string>) => {
-        const ctx: RequestContext = {
-          body: {},
-          param: par
-        }
-        return await clazz[m.funName](ctx)
+      target: async (req, metadata: RequestMethod) => {
+        const param = []
+        return await clazz[m.funName](...param)
       }
     })
   }
