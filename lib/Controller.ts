@@ -1,10 +1,14 @@
 import { IncomingMessage } from 'node:http'
 import { match, MatchFunction } from 'path-to-regexp'
+import { ValidatorType } from './Validator'
+
+type HttpRequestMethod = 'GET' | 'POST' | 'PUT' | 'DELETE'
 
 interface RequestMethodMetadataRaw {
     path: string;
     funName: string;
-    method: 'GET' | 'POST' | 'PUT' | 'DELETE'
+    body?: ValidatorType;
+    method: HttpRequestMethod
 }
 
 export interface ControllerMetadataRaw {
@@ -54,15 +58,33 @@ export function Controller (option: ControllerOption): ClassDecorator {
 }
 
 export interface RequestMethodOption {
-    path?: string
+    path?: string;
+    body?: ValidatorType;
 }
 
-export function Get (option: RequestMethodOption = {}): PropertyDecorator {
+function _RequestMapping (method: HttpRequestMethod, option: RequestMethodOption = {}): PropertyDecorator {
   return (target: any, propertyKey) => {
     const m = getMethodMetadata(target, propertyKey)
     m.path = option.path ?? propertyKey.toString()
-    m.method = 'GET'
+    m.method = method
+    m.body = option.body
   }
+}
+
+export function Get (option: RequestMethodOption = {}): PropertyDecorator {
+  return _RequestMapping('GET', option)
+}
+
+export function Post (option: RequestMethodOption = {}): PropertyDecorator {
+  return _RequestMapping('POST', option)
+}
+
+export function Put (option: RequestMethodOption = {}): PropertyDecorator {
+  return _RequestMapping('PUT', option)
+}
+
+export function Delete (option: RequestMethodOption = {}): PropertyDecorator {
+  return _RequestMapping('DELETE', option)
 }
 
 export function isExistController (target: any) {
@@ -71,14 +93,15 @@ export function isExistController (target: any) {
 
 export interface RequestContext {
     body: unknown;
-    param:Record<string, string>
+    param: Record<string, string>;
 }
 
 export interface RequestMethod {
     path: string;
-    match: MatchFunction,
-    validator: (req: IncomingMessage) => void,
-    target: (req: IncomingMessage, param:Record<string, string>) => Promise<unknown>
+    method: HttpRequestMethod,
+    urlValidator: MatchFunction,
+    bodyValidator: (req: IncomingMessage) => void,
+    target: (req: IncomingMessage, param: Record<string, unknown>) => Promise<unknown>
 }
 
 export function build (clazz: any, target: any): RequestMethod[] {
@@ -96,10 +119,11 @@ export function build (clazz: any, target: any): RequestMethod[] {
     const validFun: (req: IncomingMessage) => void = new Function('req', validScript)
     console.log(fullPath)
     list.push({
-      match: match(fullPath),
+      urlValidator: match(fullPath),
       path: fullPath,
-      validator: validFun,
-      target: async (req, par:Record<string, string>) => {
+      method: m.method,
+      bodyValidator: validFun,
+      target: async (req, par: Record<string, string>) => {
         const ctx: RequestContext = {
           body: {},
           param: par
